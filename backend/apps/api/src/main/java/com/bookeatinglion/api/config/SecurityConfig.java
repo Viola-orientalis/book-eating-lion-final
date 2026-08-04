@@ -2,21 +2,17 @@ package com.bookeatinglion.api.config;
 
 import com.bookeatinglion.api.exception.RestAccessDeniedHandler;
 import com.bookeatinglion.api.exception.RestAuthenticationEntryPoint;
-import com.bookeatinglion.common.security.JwtFilter;
+import com.bookeatinglion.common.security.JwtUserDetailsAuthenticationConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -28,9 +24,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtFilter jwtFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
+    private final UserDetailsService userDetailsService;
 
     @Value("${app.cors-allowed-origins}")
     private List<String> corsAllowedOrigins;
@@ -55,21 +51,19 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         // 관리자 전용 API(향후 구현) 권한 강제
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // 그 외 모든 요청은 유효한 Access Token(JWT) 인증을 요구한다.
+                        // 그 외 모든 요청은 AWS Cognito가 발급한 유효한 Access Token 인증을 요구한다.
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                // 토큰 서명/만료 검증은 Cognito User Pool의 JWKS(spring.security.oauth2.resourceserver.jwt.issuer-uri)에
+                // 위임하고, 검증이 끝난 Jwt를 우리 서비스의 UserDetails로 매핑하는 것만 jwtAuthenticationConverter가 담당한다.
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
         return http.build();
     }
 
     @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+    JwtUserDetailsAuthenticationConverter jwtAuthenticationConverter() {
+        return new JwtUserDetailsAuthenticationConverter(userDetailsService);
     }
 
     public CorsConfigurationSource corsConfigurationSource() {

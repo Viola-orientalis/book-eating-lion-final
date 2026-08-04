@@ -11,8 +11,9 @@ import lombok.NoArgsConstructor;
  * 서비스 전체 회원 계정을 나타내는 JPA 엔티티.
  *
  * <p>{@code /docs/테이블 상세 역할 정리표.md}에 정의된 {@code members} 테이블에 대응하며,
- * 인증(아이디/비밀번호), 프로필(이름/성별/나이), 인가({@link Role}),
- * 멤버십 등급({@link MemberGrade})과 보유 포인트를 함께 관리한다.</p>
+ * 로그인 아이디와 AWS Cognito 연결 식별자(cognitoSub), 프로필(이름/성별/나이), 인가({@link Role}),
+ * 멤버십 등급({@link MemberGrade})과 보유 포인트를 함께 관리한다. 자격증명(비밀번호) 자체는
+ * 저장하지 않으며 AWS Cognito User Pool이 전담한다.</p>
  *
  * <p>다른 엔티티들과 마찬가지로 JPA 프록시 생성을 위한 기본 생성자는 {@code protected}로 제한하고,
  * 실제 객체 생성은 {@link Builder}를 통해서만 하도록 강제한다.</p>
@@ -31,9 +32,9 @@ public class Member extends BaseEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    /** {@code PasswordEncoder}로 암호화되어 저장되는 비밀번호. 평문은 절대 저장하지 않는다. */
-    @Column(nullable = false)
-    private String password;
+    /** AWS Cognito User Pool 상의 고유 식별자(sub). 자격증명은 Cognito가 전담하며, 이 값으로만 연결된다. */
+    @Column(nullable = false, unique = true, length = 100)
+    private String cognitoSub;
 
     /** 회원 이름(실명 또는 닉네임). */
     @Column(nullable = false, length = 100)
@@ -67,20 +68,20 @@ public class Member extends BaseEntity {
      * 그 외 필드 변경은 {@link #updateProfile(String, Gender, Integer)}처럼
      * 의도가 드러나는 전용 메서드를 통해서만 이루어져야 한다.
      *
-     * @param username 로그인 아이디
-     * @param password 암호화된 비밀번호
-     * @param name     회원 이름
-     * @param gender   성별
-     * @param age      나이
-     * @param role     시스템 권한(가입 직후에는 기본적으로 {@link Role#USER})
-     * @param grade    멤버십 등급(가입 직후에는 기본적으로 {@link MemberGrade#BASIC})
-     * @param point    초기 보유 포인트(가입 직후에는 기본적으로 0)
+     * @param username   로그인 아이디
+     * @param cognitoSub AWS Cognito User Pool 상의 고유 식별자(sub)
+     * @param name       회원 이름
+     * @param gender     성별
+     * @param age        나이
+     * @param role       시스템 권한(가입 직후에는 기본적으로 {@link Role#USER})
+     * @param grade      멤버십 등급(가입 직후에는 기본적으로 {@link MemberGrade#BASIC})
+     * @param point      초기 보유 포인트(가입 직후에는 기본적으로 0)
      */
     @Builder
-    private Member(String username, String password, String name, Gender gender, Integer age,
+    private Member(String username, String cognitoSub, String name, Gender gender, Integer age,
                    Role role, MemberGrade grade, long point) {
         this.username = username;
-        this.password = password;
+        this.cognitoSub = cognitoSub;
         this.name = name;
         this.gender = gender;
         this.age = age;

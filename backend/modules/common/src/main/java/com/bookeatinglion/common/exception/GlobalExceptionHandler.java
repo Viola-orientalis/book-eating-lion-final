@@ -75,4 +75,3 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.getStatus()).body(ApiResponse.error(errorResponse));
     }
 }
-}

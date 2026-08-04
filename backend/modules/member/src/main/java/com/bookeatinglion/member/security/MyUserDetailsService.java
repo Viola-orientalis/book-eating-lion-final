@@ -11,9 +11,10 @@ import org.springframework.stereotype.Service;
  * Spring Security가 인증/인가 과정에서 사용자 정보를 조회할 때 사용하는
  * {@link UserDetailsService} 구현체.
  *
- * <p>{@code JwtFilter}는 Access Token에 담긴 subject(username)로 이 서비스를 호출해
- * 매 요청마다 DB에서 최신 회원 권한 정보를 읽어온다. 이렇게 하면 토큰 발급 이후
- * 관리자가 권한을 바꾸더라도(예: USER -&gt; ADMIN) 토큰을 재발급받는 즉시 반영된다.</p>
+ * <p>{@code JwtUserDetailsAuthenticationConverter}는 Cognito Access Token에 담긴
+ * {@code username} 클레임으로 이 서비스를 호출해 매 요청마다 DB에서 최신 회원 권한
+ * 정보를 읽어온다. 이렇게 하면 토큰 발급 이후 관리자가 권한을 바꾸더라도(예: USER -&gt; ADMIN)
+ * 토큰을 재발급받는 즉시 반영된다.</p>
  */
 @Service
 @RequiredArgsConstructor

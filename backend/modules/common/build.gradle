@@ -6,8 +6,6 @@ dependencies {
     api 'org.springframework.boot:spring-boot-starter-actuator'
     api 'io.micrometer:micrometer-registry-prometheus'
 
-    // JWT (jjwt)
-    api 'io.jsonwebtoken:jjwt-api:0.12.6'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    // AWS Cognito 기반 인증: JWT 서명 검증을 Spring OAuth2 Resource Server(JWKS)에 위임
+    api 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 }

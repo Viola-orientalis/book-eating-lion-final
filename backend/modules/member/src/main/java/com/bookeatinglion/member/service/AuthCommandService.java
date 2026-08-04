@@ -6,18 +6,19 @@ import com.bookeatinglion.member.domain.Member;
 import com.bookeatinglion.member.domain.MemberGrade;
 import com.bookeatinglion.member.domain.Role;
 import com.bookeatinglion.member.dto.AuthDto;
+import com.bookeatinglion.member.infra.cognito.CognitoAuthClient;
 import com.bookeatinglion.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 
 /**
  * 인증(Auth) 도메인의 상태 변경(Command) 유스케이스를 담당하는 서비스.
  *
- * <p>베타 프로젝트의 {@code AuthCommandService}/{@code AuthQueryService} 분리 컨벤션을 따라,
- * 데이터를 변경하는 회원가입 로직만 이 클래스에 두고, 조회 위주의 로그인/토큰 재발급은
- * {@link AuthQueryService}가 담당한다.</p>
+ * <p>회원가입은 AWS Cognito User Pool에 사용자를 즉시 활성화 상태로 생성한 뒤,
+ * 로컬 {@code members} 테이블에는 자격증명(비밀번호)을 저장하지 않고 Cognito의
+ * 고유 식별자(sub)만 연결해 저장한다.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -25,14 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthCommandService {
 
     private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CognitoAuthClient cognitoAuthClient;
 
     /**
      * {@code POST /api/auth/signup} 요청을 처리한다.
-     *
-     * <p>아이디 중복 여부를 확인한 뒤, 비밀번호를 {@link PasswordEncoder}로 암호화하여 저장하고,
-     * 신규 회원에게는 항상 기본 권한({@link Role#USER})과 기본 등급({@link MemberGrade#BASIC}),
-     * 0포인트를 부여한다.</p>
      *
      * @param request 회원가입 요청 바디(아이디/비밀번호/이름/성별/나이)
      * @return 생성된 회원의 식별자와 아이디
@@ -43,10 +40,16 @@ public class AuthCommandService {
             throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
         }
 
+        String cognitoSub;
+        try {
+            cognitoSub = cognitoAuthClient.createUser(request.getUsername(), request.getPassword());
+        } catch (UsernameExistsException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_USERNAME);
+        }
+
         Member member = Member.builder()
                 .username(request.getUsername())
-                // 평문 비밀번호를 절대 저장하지 않고 반드시 인코딩을 거친다.
-                .password(passwordEncoder.encode(request.getPassword()))
+                .cognitoSub(cognitoSub)
                 .name(request.getName())
                 .gender(request.getGender())
                 .age(request.getAge())

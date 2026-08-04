@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * Spring Security {@link UserDetails} 계약을 만족하는 {@link Member} 어댑터.
  *
- * <p>{@code JwtFilter}가 인증에 성공하면 이 객체가
+ * <p>Cognito Access Token 검증에 성공하면 이 객체가
  * {@code SecurityContext}의 인증 주체(principal)로 저장되며, 컨트롤러에서는
  * {@code @AuthenticationPrincipal CustomUserDetails}로 바로 주입받아
  * {@code memberId}/{@code username} 등을 꺼내 쓸 수 있다.</p>
@@ -26,7 +26,6 @@ public class CustomUserDetails implements UserDetails {
 
     private final Long memberId;
     private final String username;
-    private final String password;
     private final String role;
     private final String name;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -39,11 +38,16 @@ public class CustomUserDetails implements UserDetails {
     public CustomUserDetails(Member member) {
         this.memberId = member.getId();
         this.username = member.getUsername();
-        this.password = member.getPassword();
         this.role = member.getRole().name();
         this.name = member.getName();
         // Spring Security 표준 규약에 맞춰 "ROLE_" 접두사를 붙인 권한을 부여한다.
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + this.role));
+    }
+
+    /** 자격증명은 AWS Cognito가 전담하므로 로컬에 비밀번호를 보관하지 않는다. */
+    @Override
+    public String getPassword() {
+        return null;
     }
 
     /** 계정 만료 여부. 별도 만료 정책이 없으므로 항상 만료되지 않은 것으로 취급한다. */
