@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import { ToastProvider } from "./components/Toast.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import Login from "./pages/Login.jsx";
 import Cart from "./pages/Cart.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import MyPage from "./pages/MyPage.jsx";
@@ -18,15 +21,32 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <Routes>
-          <Route element={<Layout />}>
-            {/* ProductList는 오현님 작업 예정 - 지금은 Header만 노출 */}
-            <Route path="/" element={null} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/mypage" element={<MyPage />} />
-          </Route>
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route element={<Layout />}>
+              {/* ProductList는 오현님 작업 예정 - 지금은 Header만 노출 */}
+              <Route path="/" element={null} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mypage"
+                element={
+                  <ProtectedRoute>
+                    <MyPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
+          </Routes>
+        </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
   );
