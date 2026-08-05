@@ -51,7 +51,7 @@ public class UsedBook extends BaseEntity {
     private int price;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "condition_type", nullable = false)
     private UsedBookCondition condition;
 
     @Column(columnDefinition = "TEXT")
