@@ -1,4 +1,4 @@
-package com.bookeatinglion.admin.domain;
+package com.bookeatinglion.member.domain;
 
 public enum SubscriptionStatus {
     ACTIVE,

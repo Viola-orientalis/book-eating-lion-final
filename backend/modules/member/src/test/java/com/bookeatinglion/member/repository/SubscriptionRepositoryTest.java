@@ -1,8 +1,8 @@
-package com.bookeatinglion.admin.repository;
+package com.bookeatinglion.member.repository;
 
-import com.bookeatinglion.admin.AdminModuleTestApplication;
-import com.bookeatinglion.admin.domain.Subscription;
-import com.bookeatinglion.admin.domain.SubscriptionStatus;
+import com.bookeatinglion.member.MemberModuleTestApplication;
+import com.bookeatinglion.member.domain.Subscription;
+import com.bookeatinglion.member.domain.SubscriptionStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +12,7 @@ import org.springframework.test.context.ContextConfiguration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@ContextConfiguration(classes = AdminModuleTestApplication.class)
+@ContextConfiguration(classes = MemberModuleTestApplication.class)
 class SubscriptionRepositoryTest {
 
     @Autowired
@@ -46,5 +46,12 @@ class SubscriptionRepositoryTest {
         long count = subscriptionRepository.countBySubscriptionStatus(SubscriptionStatus.CANCELLED);
 
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void 회원의_최신_구독을_조회한다() {
+        Subscription result = subscriptionRepository.findFirstByMemberIdOrderByCreatedAtDesc(3L).orElseThrow();
+
+        assertThat(result.getSubscriptionStatus()).isEqualTo(SubscriptionStatus.CANCELLED);
     }
 }

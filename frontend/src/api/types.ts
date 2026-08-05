@@ -71,15 +71,8 @@ export interface ReviewRequest {
 }
 
 // --- 회원 (Member) ---
-export type MemberGrade = 'BASIC' | 'PREMIUM'
 export type Role = 'USER' | 'ADMIN'
 export type Gender = 'MALE' | 'FEMALE'
-
-// GET /api/members/me/grade
-export interface MemberGradeResponse {
-  grade: MemberGrade
-  point: number
-}
 
 // GET /api/members/me
 export interface MemberResponse {
@@ -90,18 +83,14 @@ export interface MemberResponse {
   gender: Gender
   birthDate: string
   role: Role
-  grade: MemberGrade
   point: number
 }
 
 // --- 구독 (Subscription) ---
-export type SubscriptionStatus = 'ACTIVE' | 'CANCELLED'
-
-// GET /api/members/me/subscription (구독 이력 없으면 data: null)
+// GET /api/members/me/subscription (구독 이력이 없어도 subscribed: false로 항상 객체를 반환한다)
 export interface SubscriptionResponse {
-  status: SubscriptionStatus
-  planName: string
-  monthlyPrice: number
+  subscribed: boolean
+  planName: string | null
+  monthlyPrice: number | null
   nextDeliveryDate: string | null
-  cancelledAt: string | null
 }

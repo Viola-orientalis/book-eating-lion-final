@@ -1,4 +1,4 @@
-package com.bookeatinglion.admin.domain;
+package com.bookeatinglion.member.domain;
 
 import com.bookeatinglion.common.domain.BaseEntity;
 import jakarta.persistence.*;

@@ -2,17 +2,21 @@ package com.bookeatinglion.member.service;
 
 import com.bookeatinglion.member.domain.Gender;
 import com.bookeatinglion.member.domain.Member;
-import com.bookeatinglion.member.dto.MemberGradeResponse;
+import com.bookeatinglion.member.domain.Subscription;
+import com.bookeatinglion.member.domain.SubscriptionStatus;
 import com.bookeatinglion.member.dto.MemberResponse;
+import com.bookeatinglion.member.dto.MemberSubscriptionResponse;
 import com.bookeatinglion.member.dto.MemberUpdateRequest;
 import com.bookeatinglion.member.exception.MemberNotFoundException;
 import com.bookeatinglion.member.repository.MemberRepository;
+import com.bookeatinglion.member.repository.SubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -26,8 +30,17 @@ class MemberServiceTest {
     @Mock
     private MemberRepository memberRepository;
 
+    @Mock
+    private SubscriptionRepository subscriptionRepository;
+
     @InjectMocks
     private MemberService memberService;
+
+    private void setId(Member member, Long id) throws Exception {
+        Field field = Member.class.getDeclaredField("id");
+        field.setAccessible(true);
+        field.set(member, id);
+    }
 
     @Test
     void 내_프로필을_조회한다() {
@@ -63,13 +76,33 @@ class MemberServiceTest {
     }
 
     @Test
-    void 등급과_포인트를_조회한다() {
+    void 구독중인_회원의_구독_상태를_조회한다() throws Exception {
         Member member = Member.register("sub-1", "lion@bookeating.com", "책먹는사자");
+        setId(member, 1L);
         when(memberRepository.findByCognitoSub("sub-1")).thenReturn(Optional.of(member));
+        Subscription subscription = Subscription.builder()
+                .memberId(1L).planName("월간 구독").monthlyPrice(9900)
+                .subscriptionStatus(SubscriptionStatus.ACTIVE)
+                .build();
+        when(subscriptionRepository.findFirstByMemberIdOrderByCreatedAtDesc(1L))
+                .thenReturn(Optional.of(subscription));
 
-        MemberGradeResponse response = memberService.getGrade("sub-1");
+        MemberSubscriptionResponse response = memberService.getSubscription("sub-1");
 
-        assertThat(response.grade().name()).isEqualTo("BRONZE");
-        assertThat(response.point()).isEqualTo(0);
+        assertThat(response.subscribed()).isTrue();
+        assertThat(response.planName()).isEqualTo("월간 구독");
+    }
+
+    @Test
+    void 구독_이력이_없는_회원은_미구독_상태를_반환한다() throws Exception {
+        Member member = Member.register("sub-1", "lion@bookeating.com", "책먹는사자");
+        setId(member, 1L);
+        when(memberRepository.findByCognitoSub("sub-1")).thenReturn(Optional.of(member));
+        when(subscriptionRepository.findFirstByMemberIdOrderByCreatedAtDesc(1L))
+                .thenReturn(Optional.empty());
+
+        MemberSubscriptionResponse response = memberService.getSubscription("sub-1");
+
+        assertThat(response.subscribed()).isFalse();
     }
 }

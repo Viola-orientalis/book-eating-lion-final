@@ -2,10 +2,9 @@ package com.bookeatinglion.member.controller;
 
 import com.bookeatinglion.member.MemberModuleTestApplication;
 import com.bookeatinglion.member.domain.Gender;
-import com.bookeatinglion.member.domain.MemberGrade;
 import com.bookeatinglion.member.domain.Role;
-import com.bookeatinglion.member.dto.MemberGradeResponse;
 import com.bookeatinglion.member.dto.MemberResponse;
+import com.bookeatinglion.member.dto.MemberSubscriptionResponse;
 import com.bookeatinglion.member.dto.MemberUpdateRequest;
 import com.bookeatinglion.member.exception.MemberNotFoundException;
 import com.bookeatinglion.member.service.MemberService;
@@ -46,7 +45,7 @@ class MemberControllerTest {
 
     private MemberResponse memberResponse() {
         return new MemberResponse(1L, "lion@bookeating.com", "책먹는사자", "010-1234-5678",
-                Gender.MALE, LocalDate.of(2000, 1, 1), Role.USER, MemberGrade.BRONZE, 0);
+                Gender.MALE, LocalDate.of(2000, 1, 1), Role.USER, 0);
     }
 
     @Test
@@ -84,12 +83,13 @@ class MemberControllerTest {
     }
 
     @Test
-    void 등급과_포인트를_조회한다() throws Exception {
-        when(memberService.getGrade(SUB)).thenReturn(new MemberGradeResponse(MemberGrade.BRONZE, 0));
+    void 구독_상태를_조회한다() throws Exception {
+        when(memberService.getSubscription(SUB))
+                .thenReturn(new MemberSubscriptionResponse(true, "월간 구독", 9900L, LocalDate.of(2026, 9, 1)));
 
-        mockMvc.perform(get("/api/members/me/grade").with(jwt().jwt(jwt -> jwt.subject(SUB))))
+        mockMvc.perform(get("/api/members/me/subscription").with(jwt().jwt(jwt -> jwt.subject(SUB))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.grade").value("BRONZE"))
-                .andExpect(jsonPath("$.data.point").value(0));
+                .andExpect(jsonPath("$.data.subscribed").value(true))
+                .andExpect(jsonPath("$.data.planName").value("월간 구독"));
     }
 }

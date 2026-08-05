@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS members (
     gender VARCHAR(10),
     birth_date DATE,
     role VARCHAR(20) NOT NULL DEFAULT 'USER',
-    grade VARCHAR(20) NOT NULL DEFAULT 'BRONZE',
     point INT NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -34,8 +33,8 @@ CREATE TABLE IF NOT EXISTS books (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-INSERT INTO members (cognito_sub, email, name, role, grade)
-VALUES ('00000000-0000-0000-0000-000000000001', 'test@lion.com', '테스트유저', 'USER', 'BRONZE');
+INSERT INTO members (cognito_sub, email, name, role)
+VALUES ('00000000-0000-0000-0000-000000000001', 'test@lion.com', '테스트유저', 'USER');
 
 INSERT INTO books (
     title, author, publisher, isbn, category, price, stock_quantity,

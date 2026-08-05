@@ -2,8 +2,8 @@ package com.bookeatinglion.member.controller;
 
 import com.bookeatinglion.common.dto.ApiResponse;
 import com.bookeatinglion.common.security.SecurityUtils;
-import com.bookeatinglion.member.dto.MemberGradeResponse;
 import com.bookeatinglion.member.dto.MemberResponse;
+import com.bookeatinglion.member.dto.MemberSubscriptionResponse;
 import com.bookeatinglion.member.dto.MemberUpdateRequest;
 import com.bookeatinglion.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +30,8 @@ public class MemberController {
         return ApiResponse.success(memberService.updateProfile(SecurityUtils.currentMemberSub(), request));
     }
 
-    @GetMapping("/me/grade")
-    public ApiResponse<MemberGradeResponse> getMyGrade() {
-        return ApiResponse.success(memberService.getGrade(SecurityUtils.currentMemberSub()));
+    @GetMapping("/me/subscription")
+    public ApiResponse<MemberSubscriptionResponse> getMySubscription() {
+        return ApiResponse.success(memberService.getSubscription(SecurityUtils.currentMemberSub()));
     }
 }

@@ -39,10 +39,6 @@ public class Member extends BaseEntity {
     @Column(nullable = false)
     private Role role;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MemberGrade grade;
-
     @Column(nullable = false)
     private int point;
 
@@ -52,7 +48,6 @@ public class Member extends BaseEntity {
         this.email = email;
         this.name = name;
         this.role = Role.USER;
-        this.grade = MemberGrade.BRONZE;
         this.point = 0;
     }
 

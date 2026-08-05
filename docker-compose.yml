@@ -11,6 +11,11 @@ services:
       MYSQL_PASSWORD: devpassword
     volumes:
       - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -26,8 +31,10 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bookdb?useSSL=false&allowPublicKeyRetrieval=true
@@ -37,6 +44,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: final-frontend
+    ports:
+      - "3000:80"
     depends_on:
       - backend
 

@@ -9,7 +9,6 @@ import com.bookeatinglion.admin.dto.DashboardStatsResponse;
 import com.bookeatinglion.admin.dto.RecentOrderSummary;
 import com.bookeatinglion.admin.service.AdminService;
 import com.bookeatinglion.book.domain.SaleStatus;
-import com.bookeatinglion.member.domain.MemberGrade;
 import com.bookeatinglion.member.domain.Role;
 import com.bookeatinglion.order.domain.OrderStatus;
 import org.junit.jupiter.api.Test;
@@ -142,7 +141,7 @@ class AdminControllerTest {
     @Test
     void 회원_목록_조회는_200을_반환한다() throws Exception {
         AdminMemberResponse member = new AdminMemberResponse(1L, "a@a.com", "홍길동", "010-0000-0000",
-                Role.USER, MemberGrade.BRONZE, 0, LocalDateTime.now());
+                Role.USER, 0, LocalDateTime.now());
         when(adminService.getMembers(any()))
                 .thenReturn(new PageImpl<>(List.of(member), PageRequest.of(0, 20), 1));
 

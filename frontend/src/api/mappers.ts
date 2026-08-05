@@ -5,14 +5,13 @@ import type {
   BookDetailResponse,
   BookSummaryResponse,
   BookSynopsisDetailResponse,
-  MemberGradeResponse,
   MemberResponse,
   Page,
   ReviewResponse,
   SubscriptionResponse,
 } from './types.ts'
 import type { Book, BookSummary, Review, WebtoonCut } from '../types/book.ts'
-import type { GradeInfo, Member, Subscription } from '../types/member.ts'
+import type { Member, Subscription } from '../types/member.ts'
 import type { Paged } from '../types/common.ts'
 
 // --- 임시 기본값 (백엔드 미구현 / 미합의) ---
@@ -67,27 +66,21 @@ export function toWebtoonCuts(dto: BookSynopsisDetailResponse): WebtoonCut[] {
     .map((caption, i) => ({ id: `cut-${i + 1}`, caption }))
 }
 
-export function toGradeInfo(dto: MemberGradeResponse): GradeInfo {
-  return {
-    grade: dto.grade,
-    point: dto.point,
-    isPremium: dto.grade === 'PREMIUM',
-  }
-}
-
 export function toMember(dto: MemberResponse): Member {
   return {
     id: String(dto.id),
     name: dto.name,
     email: dto.email,
-    grade: dto.grade,
     point: dto.point,
   }
 }
 
-// 구독 이력이 없으면 dto가 null(=비구독)이다.
 export function toSubscription(dto: SubscriptionResponse | null): Subscription {
-  return { isActive: dto?.status === 'ACTIVE' }
+  return {
+    isActive: dto?.subscribed ?? false,
+    planName: dto?.planName ?? null,
+    nextDeliveryDate: dto?.nextDeliveryDate ?? null,
+  }
 }
 
 export function toReview(dto: ReviewResponse): Review {

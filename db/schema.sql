@@ -40,7 +40,6 @@ CREATE TABLE members (
     gender        ENUM('MALE', 'FEMALE') DEFAULT 'MALE',
     age           INT NULL,
     role          ENUM('USER', 'ADMIN')     NOT NULL DEFAULT 'USER',
-    grade         ENUM('BASIC', 'PREMIUM')  NOT NULL DEFAULT 'BASIC',
     point_balance BIGINT NOT NULL DEFAULT 0,
     is_deleted    TINYINT(1) NOT NULL DEFAULT 0,
     deleted_at    TIMESTAMP NULL,

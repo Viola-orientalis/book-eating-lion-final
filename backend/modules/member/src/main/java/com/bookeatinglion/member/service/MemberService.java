@@ -1,11 +1,12 @@
 package com.bookeatinglion.member.service;
 
 import com.bookeatinglion.member.domain.Member;
-import com.bookeatinglion.member.dto.MemberGradeResponse;
 import com.bookeatinglion.member.dto.MemberResponse;
+import com.bookeatinglion.member.dto.MemberSubscriptionResponse;
 import com.bookeatinglion.member.dto.MemberUpdateRequest;
 import com.bookeatinglion.member.exception.MemberNotFoundException;
 import com.bookeatinglion.member.repository.MemberRepository;
+import com.bookeatinglion.member.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     public MemberResponse getMyProfile(String cognitoSub) {
         return MemberResponse.from(getMember(cognitoSub));
@@ -28,8 +30,10 @@ public class MemberService {
         return MemberResponse.from(member);
     }
 
-    public MemberGradeResponse getGrade(String cognitoSub) {
-        return MemberGradeResponse.from(getMember(cognitoSub));
+    public MemberSubscriptionResponse getSubscription(String cognitoSub) {
+        Member member = getMember(cognitoSub);
+        return MemberSubscriptionResponse.from(
+                subscriptionRepository.findFirstByMemberIdOrderByCreatedAtDesc(member.getId()).orElse(null));
     }
 
     private Member getMember(String cognitoSub) {

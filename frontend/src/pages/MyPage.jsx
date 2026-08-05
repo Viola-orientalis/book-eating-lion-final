@@ -18,6 +18,7 @@ import {
   fetchRestockRequests,
   fetchReviews,
 } from "../api/mypage.js";
+import { getMySubscription } from "../api/member.ts";
 
 const BADGE_ICONS = { achievement: Award, reading: BookOpen, streak: Flame };
 const EXP_PER_BOOK = 15;
@@ -45,6 +46,7 @@ export default function MyPage() {
   const [profile, setProfile] = useState(null);
   const [level, setLevel] = useState(0);
   const [exp, setExp] = useState(0);
+  const [subscription, setSubscription] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -54,6 +56,9 @@ export default function MyPage() {
       setLevel(data.level);
       setExp(data.exp);
     });
+    getMySubscription().then((data) => {
+      if (!ignore) setSubscription(data);
+    });
     return () => {
       ignore = true;
     };
@@ -62,7 +67,7 @@ export default function MyPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       {profile ? (
-        <ProfileCard profile={profile} level={level} />
+        <ProfileCard profile={profile} level={level} subscription={subscription} />
       ) : (
         <Skeleton variant="rectangular" className="h-28 w-full" />
       )}
@@ -78,19 +83,22 @@ export default function MyPage() {
   );
 }
 
-function ProfileCard({ profile, level }) {
+function ProfileCard({ profile, level, subscription }) {
   return (
     <section className="rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(27,59,54,0.08)]">
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--color-honey)]/20 text-3xl">
           🦁
         </div>
-        <h1 className="font-display text-xl text-[var(--color-forest)]">
-          {profile.name} 님의 마이페이지{" "}
-          <span className="text-[var(--color-honey)]">
-            (Lv.{level} {profile.title})
-          </span>
-        </h1>
+        <div>
+          <h1 className="font-display text-xl text-[var(--color-forest)]">
+            {profile.name} 님의 마이페이지{" "}
+            <span className="text-[var(--color-honey)]">
+              (Lv.{level} {profile.title})
+            </span>
+          </h1>
+          <SubscriptionBadge subscription={subscription} />
+        </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {profile.badges.map((badge) => {
@@ -107,6 +115,23 @@ function ProfileCard({ profile, level }) {
         })}
       </div>
     </section>
+  );
+}
+
+// 등급제(Bronze/Silver/Gold) 대신 정기구독 상태만 표시한다.
+function SubscriptionBadge({ subscription }) {
+  if (!subscription) return null;
+  const isActive = subscription.isActive;
+  return (
+    <span
+      className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+        isActive
+          ? "bg-[var(--color-forest)]/10 text-[var(--color-forest)]"
+          : "bg-gray-100 text-gray-500"
+      }`}
+    >
+      {isActive ? `정기구독 중${subscription.planName ? ` · ${subscription.planName}` : ""}` : "미구독"}
+    </span>
   );
 }
 
