@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Login from "./pages/Login.jsx";
+import Signup from "./pages/Signup.jsx";
 import Cart from "./pages/Cart.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import MyPage from "./pages/MyPage.jsx";
@@ -27,6 +28,7 @@ export default function App() {
               {/* ProductList는 오현님 작업 예정 - 지금은 Header만 노출 */}
               <Route path="/" element={null} />
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               <Route path="/cart" element={<Cart />} />
               <Route
                 path="/checkout"
