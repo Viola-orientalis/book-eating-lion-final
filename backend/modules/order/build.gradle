@@ -4,6 +4,15 @@ dependencies {
     // 잘라야 했던 유일한 이음새였다. 회원 검증은 JWT 클레임으로 대체됐다.
     implementation project(':modules:common')
 
+    // OrderService 가 재고차감 1차 방어선(Redlock)에 직접 RedissonClient 를 쓴다.
+    // 빈 등록은 apps/order-api/config/RedissonConfig 에서 한다 — Redis 접속 정보는 앱 배선이다.
+    implementation 'org.redisson:redisson-spring-boot-starter:3.40.2'
+
     testImplementation 'com.h2database:h2'
     testImplementation 'org.springframework.security:spring-security-test'
+
+    // 재고 동시성(Redlock + 낙관적 락 + CHECK 제약) 검증 1건만. H2로는 Postgres CHECK 제약과
+    // 실제 락 경합을 재현할 수 없어 이 테스트에 한해 실제 Postgres 컨테이너를 띄운다.
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.testcontainers:postgresql:1.20.4'
 }

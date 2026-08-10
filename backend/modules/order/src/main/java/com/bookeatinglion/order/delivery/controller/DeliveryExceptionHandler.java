@@ -18,6 +18,12 @@ public class DeliveryExceptionHandler {
         return ResponseEntity.status(errorCode.getStatus()).body(ApiResponse.error(errorCode.name(), e.getMessage()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidTransition(IllegalStateException e) {
+        return ResponseEntity.status(DeliveryErrorCode.INVALID_STATUS_TRANSITION.getStatus())
+                .body(ApiResponse.error(DeliveryErrorCode.INVALID_STATUS_TRANSITION.name(), e.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()

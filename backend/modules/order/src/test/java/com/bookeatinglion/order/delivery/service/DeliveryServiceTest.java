@@ -1,26 +1,27 @@
 package com.bookeatinglion.order.delivery.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.bookeatinglion.order.delivery.domain.Delivery;
 import com.bookeatinglion.order.delivery.domain.DeliveryStatus;
 import com.bookeatinglion.order.delivery.dto.DeliveryResponse;
+import com.bookeatinglion.order.delivery.dto.DeliveryStatusUpdateRequest;
 import com.bookeatinglion.order.delivery.exception.DeliveryNotFoundException;
 import com.bookeatinglion.order.delivery.exception.UnauthorizedDeliveryAccessException;
 import com.bookeatinglion.order.delivery.repository.DeliveryRepository;
 import com.bookeatinglion.order.domain.Order;
+import com.bookeatinglion.order.domain.OrderStatus;
 import com.bookeatinglion.order.repository.OrderRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * MemberRepository 목이 사라진 것이 이 테스트의 핵심 변화다.
@@ -52,6 +53,13 @@ class DeliveryServiceTest {
     private Order orderOwnedBy(Long memberId) {
         Order order = mock(Order.class);
         when(order.getMemberId()).thenReturn(memberId);
+        return order;
+    }
+
+    /** updateStatus() 는 order.isOwnedBy(...) 를 호출하므로 실제 Order 인스턴스가 필요하다. */
+    private Order realOrderOwnedBy(Long memberId) {
+        Order order = Order.create(memberId, null, null, "홍길동", "010", "12345", "서울시", null, 10_000, 0, 0);
+        ReflectionTestUtils.setField(order, "id", 100L);
         return order;
     }
 
@@ -94,5 +102,31 @@ class DeliveryServiceTest {
 
         assertThatThrownBy(() -> deliveryService.getDeliveryByOrder(1L, 100L))
                 .isInstanceOf(DeliveryNotFoundException.class);
+    }
+
+    @Test
+    void 배송을_SHIPPED로_전이하면_주문상태도_SHIPPED로_동기화된다() {
+        Order order = realOrderOwnedBy(1L);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(deliveryRepository.findByOrderId(100L))
+                .thenReturn(Optional.of(Delivery.builder().orderId(100L).build()));
+
+        DeliveryResponse response = deliveryService.updateStatus(
+                1L, 100L, new DeliveryStatusUpdateRequest(DeliveryStatus.SHIPPED, "CJ대한통운", "12345"));
+
+        assertThat(response.deliveryStatus()).isEqualTo(DeliveryStatus.SHIPPED);
+        assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.SHIPPED);
+    }
+
+    @Test
+    void READY_상태에서_바로_DELIVERED로_전이할_수_없다() {
+        Order order = realOrderOwnedBy(1L);
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(deliveryRepository.findByOrderId(100L))
+                .thenReturn(Optional.of(Delivery.builder().orderId(100L).build()));
+
+        assertThatThrownBy(() -> deliveryService.updateStatus(
+                        1L, 100L, new DeliveryStatusUpdateRequest(DeliveryStatus.DELIVERED, null, null)))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

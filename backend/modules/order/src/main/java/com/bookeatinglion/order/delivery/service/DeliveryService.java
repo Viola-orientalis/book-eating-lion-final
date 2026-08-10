@@ -2,10 +2,12 @@ package com.bookeatinglion.order.delivery.service;
 
 import com.bookeatinglion.order.delivery.domain.Delivery;
 import com.bookeatinglion.order.delivery.dto.DeliveryResponse;
+import com.bookeatinglion.order.delivery.dto.DeliveryStatusUpdateRequest;
 import com.bookeatinglion.order.delivery.exception.DeliveryNotFoundException;
 import com.bookeatinglion.order.delivery.exception.UnauthorizedDeliveryAccessException;
 import com.bookeatinglion.order.delivery.repository.DeliveryRepository;
 import com.bookeatinglion.order.domain.Order;
+import com.bookeatinglion.order.domain.OrderStatus;
 import com.bookeatinglion.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,32 @@ public class DeliveryService {
 
         Delivery delivery =
                 deliveryRepository.findByOrderId(orderId).orElseThrow(() -> new DeliveryNotFoundException(orderId));
+
+        return DeliveryResponse.from(delivery);
+    }
+
+    /** 배송 상태 전이. 주문 상태도 배송 상태에 맞춰(SHIPPED/DELIVERED) 함께 동기화한다. */
+    @Transactional
+    public DeliveryResponse updateStatus(Long memberId, Long orderId, DeliveryStatusUpdateRequest request) {
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new DeliveryNotFoundException(orderId));
+        if (!order.isOwnedBy(memberId)) {
+            throw new UnauthorizedDeliveryAccessException(orderId);
+        }
+        Delivery delivery =
+                deliveryRepository.findByOrderId(orderId).orElseThrow(() -> new DeliveryNotFoundException(orderId));
+
+        switch (request.targetStatus()) {
+            case SHIPPED -> {
+                delivery.ship(request.courierCompany(), request.trackingNumber());
+                order.changeStatus(OrderStatus.SHIPPED);
+            }
+            case IN_TRANSIT -> delivery.markInTransit();
+            case DELIVERED -> {
+                delivery.markDeliver();
+                order.changeStatus(OrderStatus.DELIVERED);
+            }
+            default -> throw new IllegalStateException("지원하지 않는 배송 상태 전이입니다: " + request.targetStatus());
+        }
 
         return DeliveryResponse.from(delivery);
     }

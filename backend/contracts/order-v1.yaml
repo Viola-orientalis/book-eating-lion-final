@@ -120,6 +120,360 @@ paths:
         "404":
           description: 주문 또는 배송 정보 없음
 
+    patch:
+      summary: 배송 상태 변경
+      description: |
+        READY→SHIPPED→IN_TRANSIT→DELIVERED 순서만 허용한다(역방향/건너뛰기는 409).
+        SHIPPED 로 전이할 때는 주문 상태도 함께 SHIPPED 로, DELIVERED 전이 시 DELIVERED 로 동기화한다.
+      operationId: updateDeliveryStatus
+      tags: [delivery]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryStatusUpdateRequest"
+      responses:
+        "200":
+          description: 변경 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryEnvelope"
+        "403":
+          description: 타인의 주문
+        "404":
+          description: 주문 또는 배송 정보 없음
+        "409":
+          description: 허용되지 않는 상태 전이
+
+  /api/orders:
+    post:
+      summary: 주문 생성
+      description: |
+        재고 차감(Redlock→낙관적 락→CHECK 제약)과 쿠폰 사용, 주문·배송 레코드 생성이 전부 이
+        한 요청의 로컬 트랜잭션 안에서 끝난다(판단 ①). 도서 제목/단가, 배송지는 이 서비스가
+        catalog_db/member_db 를 조회할 수 없어 요청 바디의 스냅샷 값을 그대로 저장한다.
+      operationId: createOrder
+      tags: [order]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderCreateRequest"
+      responses:
+        "201":
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "400":
+          description: 주문 항목이 비어있거나 요청이 유효하지 않음
+        "409":
+          description: 재고 부족 또는 재고 락 획득 실패
+
+    get:
+      summary: 마이페이지 주문 목록
+      operationId: getMyOrders
+      tags: [order]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderSummaryPageEnvelope"
+
+  /api/orders/{orderId}:
+    get:
+      summary: 주문 상세 조회
+      operationId: getOrder
+      tags: [order]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "403":
+          description: 타인의 주문
+        "404":
+          description: 주문 없음
+
+  /api/payments:
+    post:
+      summary: 결제 승인(가상 카드 모킹)
+      description: |
+        실제 PG/카드사 연동 대신 로컬에서 승인번호·PG TID 를 생성한다. idempotencyKey 로 중복
+        승인을 막는다 — 같은 키로 재요청하면 기존 결제를 그대로 반환한다.
+      operationId: approvePayment
+      tags: [payment]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentApproveRequest"
+      responses:
+        "201":
+          description: 승인 성공(또는 같은 idempotencyKey 의 기존 결제)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentEnvelope"
+        "403":
+          description: 타인의 주문
+        "409":
+          description: 결제 가능한 주문 상태가 아니거나 idempotencyKey 중복 요청 경합
+
+  /api/payments/{paymentId}/receipt:
+    get:
+      summary: 영수증 조회
+      operationId: getReceipt
+      tags: [payment]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptEnvelope"
+        "403":
+          description: 타인의 결제
+        "404":
+          description: 결제 없음
+
+  /api/payments/{paymentId}/cancel:
+    post:
+      summary: 결제 취소·환불
+      description: |
+        단일 트랜잭션으로 결제 취소 + 주문 취소 + 재고 원복(inventory.restock) + 쿠폰 사용
+        상태 원복(member_coupon.restore)을 전부 처리한다.
+      operationId: cancelPayment
+      tags: [payment]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCancelRequest"
+      responses:
+        "200":
+          description: 취소 성공
+        "403":
+          description: 타인의 결제
+        "404":
+          description: 결제 없음
+        "409":
+          description: 이미 취소된 결제
+
+  /api/cart/items:
+    get:
+      summary: 장바구니 목록 조회
+      operationId: listCartItems
+      tags: [cart]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartItemListEnvelope"
+
+    post:
+      summary: 장바구니 담기
+      description: 이미 담긴 책이면 수량을 더한다(신규 생성이 아니라 증분).
+      operationId: addCartItem
+      tags: [cart]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemAddRequest"
+      responses:
+        "201":
+          description: 담기 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartItemEnvelope"
+
+  /api/cart/items/{cartItemId}:
+    patch:
+      summary: 장바구니 수량 변경
+      operationId: updateCartItemQuantity
+      tags: [cart]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartItemId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemUpdateRequest"
+      responses:
+        "200":
+          description: 변경 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartItemEnvelope"
+        "403":
+          description: 타인의 장바구니 항목
+        "404":
+          description: 장바구니 항목 없음
+
+    delete:
+      summary: 장바구니 항목 삭제
+      operationId: removeCartItem
+      tags: [cart]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartItemId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 삭제 성공
+        "403":
+          description: 타인의 장바구니 항목
+        "404":
+          description: 장바구니 항목 없음
+
+  /api/cart/guest-items:
+    post:
+      summary: 비회원 장바구니 담기
+      description: |
+        로그인 전이라 인증이 없다. 프론트가 발급한 guestId 로 Redis 해시
+        `cart:guest:{guestId}` 에 bookId→quantity 로 쌓인다(TTL 30일).
+      operationId: addGuestCartItem
+      tags: [cart]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestCartItemAddRequest"
+      responses:
+        "201":
+          description: 담기 성공
+
+  /api/cart/merge:
+    post:
+      summary: 비회원 장바구니 병합
+      description: 로그인 성공 시 Redis 게스트 카트를 회원 DB 카트로 증분 병합하고 Redis 키를 지운다.
+      operationId: mergeGuestCart
+      tags: [cart]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestCartMergeRequest"
+      responses:
+        "200":
+          description: 병합 성공(병합 후 전체 장바구니 반환)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartItemListEnvelope"
+
+  /api/coupons/me:
+    get:
+      summary: 보유 쿠폰 목록(미사용만)
+      operationId: listMyCoupons
+      tags: [coupon]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberCouponResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -178,5 +532,377 @@ components:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+
+    DeliveryStatusUpdateRequest:
+      type: object
+      required: [targetStatus]
+      properties:
+        targetStatus:
+          type: string
+          enum: [SHIPPED, IN_TRANSIT, DELIVERED]
+        courierCompany:
+          type: string
+          description: SHIPPED 로 전이할 때만 사용한다.
+        trackingNumber:
+          type: string
+          description: SHIPPED 로 전이할 때만 사용한다.
+
+    OrderItemRequest:
+      type: object
+      required: [bookId, bookTitle, quantity, unitPrice]
+      description: 도서 제목/단가는 프론트가 상품 상세에서 이미 조회한 값을 스냅샷으로 보낸다.
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        bookTitle:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: integer
+          format: int64
+          minimum: 0
+
+    OrderCreateRequest:
+      type: object
+      required: [items, recipientName, recipientPhone, postalCode, address]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/OrderItemRequest"
+        addressId:
+          type: integer
+          format: int64
+          nullable: true
+        recipientName:
+          type: string
+        recipientPhone:
+          type: string
+        postalCode:
+          type: string
+        address:
+          type: string
+        addressDetail:
+          type: string
+          nullable: true
+        memberCouponId:
+          type: integer
+          format: int64
+          nullable: true
+        usedPoint:
+          type: integer
+          format: int64
+          default: 0
+        cartItemIds:
+          type: array
+          description: 있으면 주문 성공 후 이 장바구니 항목들을 삭제한다.
+          items:
+            type: integer
+            format: int64
+
+    OrderItemResponse:
+      type: object
+      properties:
+        orderItemId:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        bookTitle:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: integer
+          format: int64
+
+    OrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        memberId:
+          type: integer
+          format: int64
+        recipientName:
+          type: string
+        recipientPhone:
+          type: string
+        postalCode:
+          type: string
+        address:
+          type: string
+        addressDetail:
+          type: string
+        itemsSubtotal:
+          type: integer
+          format: int64
+        couponDiscountAmount:
+          type: integer
+          format: int64
+        usedPoint:
+          type: integer
+          format: int64
+        totalAmount:
+          type: integer
+          format: int64
+        orderStatus:
+          type: string
+          enum:
+            [PENDING_PAYMENT, PAID, PAYMENT_FAILED, PREPARING, SHIPPED, DELIVERED,
+             CANCEL_REQUESTED, CANCELLED, EXCHANGE_REQUESTED, EXCHANGED,
+             RETURN_REQUESTED, RETURNED, REFUND_REQUESTED, REFUNDED]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/OrderResponse"
+
+    OrderSummaryResponse:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        totalAmount:
+          type: integer
+          format: int64
+        orderStatus:
+          type: string
+        itemCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderSummaryPageEnvelope:
+      type: object
+      description: Spring Data Page<OrderSummaryResponse> 를 그대로 감싼다.
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderSummaryResponse"
+            totalElements:
+              type: integer
+              format: int64
+            totalPages:
+              type: integer
+            number:
+              type: integer
+
+    PaymentApproveRequest:
+      type: object
+      required: [orderId, paymentMethod, idempotencyKey]
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          enum: [CARD, KAKAOPAY]
+        cardId:
+          type: integer
+          format: int64
+          nullable: true
+          description: member_db.cards 참조값. FK 는 아니다(경계 밖) — 검증하지 않고 스냅샷만 한다.
+        idempotencyKey:
+          type: string
+
+    PaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          enum: [CARD, KAKAOPAY]
+        approvalNumber:
+          type: string
+        pgTid:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        paymentStatus:
+          type: string
+          enum: [APPROVED, DECLINED, CANCELLED]
+        approvedAt:
+          type: string
+          format: date-time
+
+    PaymentEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/PaymentResponse"
+
+    ReceiptResponse:
+      type: object
+      properties:
+        paymentId:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        approvalNumber:
+          type: string
+        pgTid:
+          type: string
+        paymentMethod:
+          type: string
+        paymentStatus:
+          type: string
+        itemsSubtotal:
+          type: integer
+          format: int64
+        couponDiscountAmount:
+          type: integer
+          format: int64
+        usedPoint:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        approvedAt:
+          type: string
+          format: date-time
+
+    ReceiptEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/ReceiptResponse"
+
+    PaymentCancelRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    CartItemAddRequest:
+      type: object
+      required: [bookId, quantity]
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+
+    CartItemUpdateRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+
+    CartItemResponse:
+      type: object
+      properties:
+        cartItemId:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+
+    CartItemEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/CartItemResponse"
+
+    CartItemListEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemResponse"
+
+    GuestCartItemAddRequest:
+      type: object
+      required: [guestId, bookId, quantity]
+      properties:
+        guestId:
+          type: string
+        bookId:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          minimum: 1
+
+    GuestCartMergeRequest:
+      type: object
+      required: [guestId]
+      properties:
+        guestId:
+          type: string
+
+    MemberCouponResponse:
+      type: object
+      properties:
+        memberCouponId:
+          type: integer
+          format: int64
+        couponCode:
+          type: string
+        couponName:
+          type: string
+        discountAmount:
+          type: integer
+          format: int64
+        minimumOrderAmount:
+          type: integer
+          format: int64
+        expiresAt:
           type: string
           format: date-time

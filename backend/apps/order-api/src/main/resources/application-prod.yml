@@ -12,7 +12,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -20,7 +20,8 @@ spring:
         default_schema: order_db
 
   flyway:
-    enabled: false
+    enabled: true
+    schemas: order_db
 
 management:
   endpoints:

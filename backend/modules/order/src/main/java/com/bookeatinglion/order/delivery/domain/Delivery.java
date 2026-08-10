@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,11 +36,41 @@ public class Delivery extends BaseEntity {
     @Column(nullable = false)
     private DeliveryStatus deliveryStatus;
 
+    private LocalDateTime shippedAt;
+
+    private LocalDateTime deliveredAt;
+
     @Builder
     public Delivery(Long orderId, String courierCompany, String trackingNumber, DeliveryStatus deliveryStatus) {
         this.orderId = orderId;
         this.courierCompany = courierCompany;
         this.trackingNumber = trackingNumber;
-        this.deliveryStatus = deliveryStatus != null ? deliveryStatus : DeliveryStatus.PENDING;
+        this.deliveryStatus = deliveryStatus != null ? deliveryStatus : DeliveryStatus.READY;
+    }
+
+    public void ship(String courierCompany, String trackingNumber) {
+        requireStatus(DeliveryStatus.READY);
+        this.courierCompany = courierCompany;
+        this.trackingNumber = trackingNumber;
+        this.deliveryStatus = DeliveryStatus.SHIPPED;
+        this.shippedAt = LocalDateTime.now();
+    }
+
+    public void markInTransit() {
+        requireStatus(DeliveryStatus.SHIPPED);
+        this.deliveryStatus = DeliveryStatus.IN_TRANSIT;
+    }
+
+    public void markDeliver() {
+        requireStatus(DeliveryStatus.IN_TRANSIT);
+        this.deliveryStatus = DeliveryStatus.DELIVERED;
+        this.deliveredAt = LocalDateTime.now();
+    }
+
+    private void requireStatus(DeliveryStatus expected) {
+        if (this.deliveryStatus != expected) {
+            throw new IllegalStateException(
+                    "배송 상태 전이가 불가능합니다: current=" + this.deliveryStatus + ", required=" + expected);
+        }
     }
 }
