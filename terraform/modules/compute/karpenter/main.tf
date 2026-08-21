@@ -18,6 +18,12 @@ resource "aws_iam_role_policy_attachment" "node" {
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    # amazon-cloudwatch-observability 애드온의 OTel 사이드카가 이 권한 없이는
+    # logs:PutLogEvents/xray:PutTraceSegments 둘 다 AccessDenied로 실패한다
+    # (인프라-트러블슈팅.md ⑭, 2026-08-21 실제로 겪음 - 앱 자체는 안 죽지만
+    # CloudWatch/X-Ray가 계속 비어 보였다).
+    "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess",
   ])
   role       = aws_iam_role.node.name
   policy_arn = each.value

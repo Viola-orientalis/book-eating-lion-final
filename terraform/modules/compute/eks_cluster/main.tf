@@ -151,6 +151,10 @@ resource "aws_iam_role_policy_attachment" "node" {
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    # karpenter 모듈의 node role과 같은 이유(인프라-트러블슈팅.md ⑭) - 이 시스템
+    # 노드그룹 위 파드(CoreDNS 등)의 OTel 사이드카도 동일하게 막혀 있었다.
+    "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess",
   ])
   role       = aws_iam_role.node.name
   policy_arn = each.value
